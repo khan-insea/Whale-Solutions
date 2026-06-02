@@ -19,7 +19,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Enforce server-side authorization check
   const authHeader = req.headers.authorization;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'whale-solutions-admin';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.error('[DATABASE/API CONFIG ERR] Missing ADMIN_PASSWORD environment variable.');
+    return res.status(500).json({ success: false, error: 'Hệ thống chưa được cấu hình mật mã quản trị trên môi trường Vercel.' });
+  }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Xác thực không hợp lệ. Vui lòng đăng nhập lại.' });

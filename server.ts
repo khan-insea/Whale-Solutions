@@ -32,7 +32,12 @@ if (!fs.existsSync(SUBMISSIONS_FILE)) {
 // Authentication middleware for submissions
 const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'whale-solutions-admin';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.error('[DATABASE/API CONFIG ERR] Missing ADMIN_PASSWORD environment variable.');
+    return res.status(500).json({ success: false, error: 'Hệ thống chưa được cấu hình mật mã quản trị trên môi trường.' });
+  }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Xác thực không hợp lệ. Vui lòng đăng nhập lại.' });
