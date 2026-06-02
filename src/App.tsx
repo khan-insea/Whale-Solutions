@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Views
 import HomeView from './views/HomeView';
@@ -195,6 +197,8 @@ export default function App() {
           <Phone size={18} fill="currentColor" />
         </a>
       </div>
+      <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
