@@ -1,50 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Search, RefreshCw, Trash2, ArrowUpRight, Sparkles, Filter, ShieldAlert } from 'lucide-react';
+import { Database, Search, RefreshCw, Trash2, ArrowUpRight, Sparkles, Filter, ShieldAlert, LogOut } from 'lucide-react';
 import { SubmissionRequest } from '../types';
 
 export default function AdminView() {
   const [submissions, setSubmissions] = useState<SubmissionRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [messageFeedback, setMessageFeedback] = useState('');
 
-  const loadSubmissions = async () => {
+  // Secure Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const loadSubmissions = async (tokenOverride?: string) => {
+    const token = tokenOverride || sessionStorage.getItem('whale_admin_token') || '';
+    if (!token) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/submissions');
+      const response = await fetch('/api/submissions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
-      if (response.ok && data.success) {
+      if (response.status === 401) {
+        sessionStorage.removeItem('whale_admin_token');
+        setIsAuthenticated(false);
+        setError('Mật khẩu quản trị không hợp lệ hoặc đã hết hạn.');
+      } else if (response.ok && data.success) {
         setSubmissions(data.submissions || []);
+        setIsAuthenticated(true);
       } else {
-        setError(data.error || 'Cannot fetch submissions');
+        setError(data.error || 'Truy vấn danh sách khách hàng thất bại.');
       }
     } catch (err: any) {
-      setError('Cannot connect to backend server: ' + (err?.message || err));
+      setError('Lỗi kết nối đến máy chủ quản trị: ' + (err?.message || err));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadSubmissions();
+    const savedToken = sessionStorage.getItem('whale_admin_token');
+    if (savedToken) {
+      setIsAuthenticated(true);
+      loadSubmissions(savedToken);
+    }
   }, []);
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPasswordInput.trim()) {
+      setAuthError('Vui lòng nhập mật khẩu quản trị.');
+      return;
+    }
+    setAuthError('');
+    sessionStorage.setItem('whale_admin_token', adminPasswordInput.trim());
+    loadSubmissions(adminPasswordInput.trim());
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('whale_admin_token');
+    setIsAuthenticated(false);
+    setSubmissions([]);
+    setAdminPasswordInput('');
+    setError('');
+  };
 
   const handleClear = async () => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ danh mục thông tin khách hàng trên hệ thống máy chủ chứ? Hành động này không thể hoàn tác!')) {
       return;
     }
 
+    const token = sessionStorage.getItem('whale_admin_token') || '';
     try {
-      const response = await fetch('/api/submissions/clear', { method: 'POST' });
+      const response = await fetch('/api/submissions/clear', { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
-      if (response.ok && data.success) {
-        setMessageFeedback('Đã dọn dẹp danh mục thành công.');
+      if (response.status === 401) {
+        sessionStorage.removeItem('whale_admin_token');
+        setIsAuthenticated(false);
+        setError('Hạn xác thực đã hết. Vui lòng đăng nhập lại.');
+      } else if (response.ok && data.success) {
+        setMessageFeedback('Đã dọn dẹp danh mục khách hàng thành công.');
         setSubmissions([]);
       } else {
-        setError('Xóa danh sách thất bại.');
+        setError(data.error || 'Xóa danh sách thất bại.');
       }
     } catch (err: any) {
       setError('Lỗi máy chủ khi xóa.');
@@ -66,6 +120,62 @@ export default function AdminView() {
     if (filterType === 'all') return matchSearch;
     return item.requestType === filterType && matchSearch;
   });
+
+  // Render Password Challenge page if not verified yet
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto pt-44 pb-32 px-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-xl space-y-6" id="admin-login-shield">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 bg-rose-50 border border-rose-200 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert size={24} />
+            </div>
+            <h2 className="font-display font-extrabold text-xl text-slate-900">Xác Thực Quyền Admin</h2>
+            <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+              Hệ thống yêu cầu mật mã quản trị viên cấp cao để truy cập toàn bộ cơ sở dữ liệu khách hàng.
+            </p>
+          </div>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5" htmlFor="admin-pass">
+                Mật khẩu Quản trị viên
+              </label>
+              <input
+                type="password"
+                id="admin-pass"
+                required
+                placeholder="Nhập mật khẩu..."
+                value={adminPasswordInput}
+                onChange={(e) => setAdminPasswordInput(e.target.value)}
+                className="w-full bg-white border border-slate-200 focus:border-[#1E73FF] rounded-xl px-4 py-2.5 text-xs text-slate-950 placeholder-slate-400 focus:outline-none transition-colors shadow-inner"
+              />
+            </div>
+
+            {authError && (
+              <p className="text-[11px] font-medium text-rose-600" id="admin-auth-error-hint">
+                * {authError}
+              </p>
+            )}
+
+            {error && (
+              <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-800 text-[11px] leading-relaxed">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#1E73FF] hover:bg-blue-600 transition-colors text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer"
+            >
+              🚀 Mở khóa hệ thống
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 space-y-8">
@@ -100,6 +210,15 @@ export default function AdminView() {
           >
             <Trash2 size={14} />
             <span className="hidden sm:inline font-bold">Xóa lịch sử</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Đăng xuất khỏi tài khoản admin"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline font-bold">Đăng xuất</span>
           </button>
         </div>
       </div>

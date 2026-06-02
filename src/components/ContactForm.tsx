@@ -30,6 +30,7 @@ export default function ContactForm({
   const [budget, setBudget] = useState('Từ 2.000.000đ - 5.000.000đ');
   const [timeline, setTimeline] = useState('Trong tháng này');
   const [message, setMessage] = useState('');
+  const [website, setWebsite] = useState(''); // Anti-bot honeypot field
 
   // UI Flow State
   const [loading, setLoading] = useState(false);
@@ -84,6 +85,7 @@ export default function ContactForm({
         message: message.trim(),
         page: window.location.href,
         submittedAt: new Date().toISOString(),
+        website: website.trim(), // Hidden honeypot field sent to API
         // Extra metadata for existing database/server compatibility
         fullName: fullName.trim(),
         businessName: businessName.trim(),
@@ -114,6 +116,7 @@ export default function ContactForm({
         setEmail('');
         setBusinessName('');
         setMessage('');
+        setWebsite('');
       } else {
         setErrorMsg(result.error || 'Không thể gửi thông tin. Vui lòng thử lại.');
       }
@@ -209,6 +212,18 @@ export default function ContactForm({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Invisible bot honeypot trap field */}
+        <div className="hidden" aria-hidden="true">
+          <input
+            type="text"
+            name="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Họ và tên */}
           <div>

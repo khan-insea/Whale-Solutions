@@ -29,8 +29,25 @@ if (!fs.existsSync(SUBMISSIONS_FILE)) {
 // API ROUTES
 // ----------------------------------------------------
 
+// Authentication middleware for submissions
+const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const adminPassword = process.env.ADMIN_PASSWORD || 'whale-solutions-admin';
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Xác thực không hợp lệ. Vui lòng đăng nhập lại.' });
+  }
+
+  const token = authHeader.substring(7);
+  if (token !== adminPassword) {
+    return res.status(401).json({ success: false, error: 'Mật khẩu quản trị không khớp.' });
+  }
+
+  next();
+};
+
 // Retrieve submissions (useful for client demonstration or verification)
-app.get('/api/submissions', (req, res) => {
+app.get('/api/submissions', checkAdminAuth, (req, res) => {
   try {
     const data = fs.readFileSync(SUBMISSIONS_FILE, 'utf-8');
     const submissions = JSON.parse(data);
@@ -42,7 +59,7 @@ app.get('/api/submissions', (req, res) => {
 });
 
 // Clear submissions (for clean testing)
-app.post('/api/submissions/clear', (req, res) => {
+app.post('/api/submissions/clear', checkAdminAuth, (req, res) => {
   try {
     fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify([], null, 2), 'utf-8');
     res.json({ success: true, message: 'Submissions cleared successfully' });

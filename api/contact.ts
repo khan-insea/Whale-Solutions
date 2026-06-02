@@ -1,6 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 
+// Keep a simple in-memory rate-limiting map on Vercel container instances
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS = 3; // MAX 3 submissions per IP per minute
+
+function sanitizeInput(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers for API accessibility
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -8,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 
   if (req.method === 'OPTIONS') {
@@ -18,33 +34,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
-      error: 'Method not allowed. Chỉ chấp nhận phương thức POST',
+      error: 'Phương thức không được hỗ trợ. Chỉ chấp nhận POST.',
     });
   }
 
   try {
+    // 1. Bot Honeypot detection
+    const { website } = req.body || {};
+    if (website && website.trim() !== '') {
+      console.warn('[SECURITY WARNING] Honeypot field filled. Silently discarding spam request.');
+      // Return 200 mock success to confuse spam bots so they do not retry
+      return res.status(200).json({
+        success: true,
+        message: 'Gửi thông tin thành công. Whale Agency sẽ liên hệ lại sớm!',
+      });
+    }
+
+    // 2. IP Rate limiting
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.headers['x-real-ip'] as string || 'anonymous').split(',')[0].trim();
+    const now = Date.now();
+    const clientRequests = rateLimitMap.get(clientIp) || [];
+    const recentRequests = clientRequests.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
+
+    if (recentRequests.length >= MAX_REQUESTS) {
+      console.warn(`[SECURITY WARNING] User ${clientIp} triggered rate limit.`);
+      return res.status(429).json({
+        success: false,
+        error: 'Bạn đang gửi yêu cầu quá nhanh. Vui lòng thử lại sau ít phút.',
+      });
+    }
+
+    recentRequests.push(now);
+    rateLimitMap.set(clientIp, recentRequests);
+
+    // 3. ENV check
     const resendApiKey = process.env.RESEND_API_KEY;
     const contactToEmail = process.env.CONTACT_TO_EMAIL;
     const contactFromEmail = process.env.CONTACT_FROM_EMAIL;
 
     if (!resendApiKey) {
+      console.error('[DATABASE/API CONFIG ERR] Missing RESEND_API_KEY environment variable.');
       return res.status(500).json({
         success: false,
-        error: 'Thiếu RESEND_API_KEY trên Vercel.',
+        error: 'Hệ thống gửi thư đang gặp sự cố. Quý khách vui lòng gọi Hotline để được hỗ trợ tức thì.',
       });
     }
 
     if (!contactToEmail) {
+      console.error('[DATABASE/API CONFIG ERR] Missing CONTACT_TO_EMAIL environment variable.');
       return res.status(500).json({
         success: false,
-        error: 'Thiếu CONTACT_TO_EMAIL trên Vercel.',
+        error: 'Hệ thống đang cấu hình nhận thông tin. Quý khách vui lòng gọi Hotline để liên hệ trực tiếp.',
       });
     }
 
     if (!contactFromEmail) {
+      console.error('[DATABASE/API CONFIG ERR] Missing CONTACT_FROM_EMAIL environment variable.');
       return res.status(500).json({
         success: false,
-        error: 'Thiếu CONTACT_FROM_EMAIL trên Vercel.',
+        error: 'Hệ thống đang cấu hình gửi thông tin. Quý khách vui lòng gọi Hotline để liên hệ trực tiếp.',
       });
     }
 
@@ -64,31 +112,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       pageSource,
     } = req.body || {};
 
-    const resolvedName = (name || fullName || '').trim();
-    const resolvedPhone = (phone || '').trim();
-    const resolvedEmail = (email || '').trim();
-    const resolvedService = (service || serviceOfInterest || 'Chưa chọn dịch vụ').trim();
-    const resolvedMessage = (message || 'Không có ghi chú thêm').trim();
-    const resolvedPage = (page || pageSource || '/').trim();
+    const rawName = (name || fullName || '').trim();
+    const rawPhone = (phone || '').trim();
+    const rawEmail = (email || '').trim();
+    const rawService = (service || serviceOfInterest || 'Chưa chọn dịch vụ').trim();
+    const rawBusinessName = (businessName || '').trim();
+    const rawRequestType = (requestType || 'consult').trim();
+    const rawBudget = (budget || 'Chưa xác định').trim();
+    const rawTimeline = (timeline || 'Chưa rõ').trim();
+    const rawMessage = (message || 'Không có ghi chú thêm').trim();
+    const rawPage = (page || pageSource || '/').trim();
 
-    if (!resolvedName) {
-      return res.status(400).json({
-        success: false,
-        error: 'Vui lòng nhập họ tên.',
-      });
+    // 4. Strict Validation length limits
+    if (!rawName) {
+      return res.status(400).json({ success: false, error: 'Vui lòng cung cấp Họ tên hàng không được trống.' });
+    }
+    if (rawName.length > 100) {
+      return res.status(400).json({ success: false, error: 'Họ tên quá dài (tối đa 100 ký tự).' });
     }
 
-    if (!resolvedPhone) {
-      return res.status(400).json({
-        success: false,
-        error: 'Vui lòng nhập số điện thoại.',
-      });
+    if (!rawPhone) {
+      return res.status(400).json({ success: false, error: 'Vui lòng cung cấp Số điện thoại.' });
     }
+    if (rawPhone.length > 20) {
+      return res.status(400).json({ success: false, error: 'Số điện thoại không hợp lệ (tối đa 20 ký tự).' });
+    }
+
+    if (rawEmail && rawEmail.length > 120) {
+      return res.status(400).json({ success: false, error: 'Email quá dài (tối đa 120 ký tự).' });
+    }
+
+    if (rawMessage.length > 2000) {
+      return res.status(400).json({ success: false, error: 'Nội dung chi tiết quá dài (tối đa 2000 ký tự).' });
+    }
+
+    // 5. Input HTML Sanitization to prevent XSS
+    const resolvedName = sanitizeInput(rawName);
+    const resolvedPhone = sanitizeInput(rawPhone);
+    const resolvedEmail = sanitizeInput(rawEmail);
+    const resolvedService = sanitizeInput(rawService);
+    const resolvedBusinessName = sanitizeInput(rawBusinessName);
+    const resolvedRequestType = sanitizeInput(rawRequestType);
+    const resolvedBudget = sanitizeInput(rawBudget);
+    const resolvedTimeline = sanitizeInput(rawTimeline);
+    const resolvedMessage = sanitizeInput(rawMessage);
+    const resolvedPage = sanitizeInput(rawPage);
 
     const requestTypeLabel =
-      requestType === 'quote'
+      resolvedRequestType === 'quote'
         ? 'Nhận báo giá dịch vụ đang triển khai'
-        : requestType === 'interest'
+        : resolvedRequestType === 'interest'
           ? 'Đăng ký quan tâm dịch vụ sắp ra mắt'
           : 'Cần tư vấn chưa rõ dịch vụ';
 
@@ -115,7 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             </tr>
             <tr style="border-bottom: 1px solid #f1f5f9;">
               <td style="padding: 10px 0; font-weight: bold; color: #475569;">Tên doanh nghiệp:</td>
-              <td style="padding: 10px 0; color: #0f172a;">${businessName || 'Chưa cung cấp'}</td>
+              <td style="padding: 10px 0; color: #0f172a;">${resolvedBusinessName || 'Chưa cung cấp'}</td>
             </tr>
             <tr style="border-bottom: 1px solid #f1f5f9;">
               <td style="padding: 10px 0; font-weight: bold; color: #475569;">Loại yêu cầu:</td>
@@ -127,11 +200,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             </tr>
             <tr style="border-bottom: 1px solid #f1f5f9;">
               <td style="padding: 10px 0; font-weight: bold; color: #475569;">Ngân sách dự kiến:</td>
-              <td style="padding: 10px 0; color: #0f172a;">${budget || 'Chưa xác định'}</td>
+              <td style="padding: 10px 0; color: #0f172a;">${resolvedBudget}</td>
             </tr>
             <tr style="border-bottom: 1px solid #f1f5f9;">
               <td style="padding: 10px 0; font-weight: bold; color: #475569;">Thời gian triển khai:</td>
-              <td style="padding: 10px 0; color: #0f172a;">${timeline || 'Chưa rõ'}</td>
+              <td style="padding: 10px 0; color: #0f172a;">${resolvedTimeline}</td>
             </tr>
           </table>
 
@@ -150,6 +223,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       </div>
     `;
 
+    // Try to trigger submissions saving on Vercel's temporary context or dynamic store
+    // Even though serverless environments are stateless, we can keep temporary data in /tmp so testing form actually submits and saves
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const tmpDir = path.join('/tmp', 'data');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+      const filePath = path.join(tmpDir, 'submissions.json');
+      let currentData: any[] = [];
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          currentData = JSON.parse(fileContent);
+        } catch (_) {}
+      }
+      const newSubmission = {
+        id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: resolvedName,
+        fullName: resolvedName,
+        phone: resolvedPhone,
+        email: resolvedEmail,
+        service: resolvedService,
+        serviceOfInterest: resolvedService,
+        businessName: resolvedBusinessName || 'Cá nhân / Chưa xác định',
+        requestType: resolvedRequestType,
+        budget: resolvedBudget,
+        timeline: resolvedTimeline,
+        message: resolvedMessage,
+        submittedAt: new Date().toISOString(),
+        page: resolvedPage,
+        pageSource: resolvedPage
+      };
+      currentData.unshift(newSubmission);
+      fs.writeFileSync(filePath, JSON.stringify(currentData.slice(0, 50), null, 2)); // limit to 50 items for speed
+    } catch (_) {
+      // Ignore write failures in Readonly filesystems silently in prod
+    }
+
     const resend = new Resend(resendApiKey);
     await resend.emails.send({
       from: contactFromEmail,
@@ -164,9 +277,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error: any) {
     console.error('Contact API error:', error);
+    // Secure safe error message (no stack traces or engine technical leakage)
     return res.status(500).json({
       success: false,
-      error: error?.message || 'Không thể gửi email. Vui lòng thử lại.',
+      error: 'Không thể hoàn tất gửi thông tin lúc này. Vui lòng thử lại sau.'
     });
   }
 }
