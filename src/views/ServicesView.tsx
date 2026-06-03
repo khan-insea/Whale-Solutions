@@ -160,6 +160,20 @@ const initialCustomProjects: CustomProject[] = [
 export default function ServicesView({ navigate, setPreFilledForm }: ServicesViewProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'available' | 'coming_soon'>('all');
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+
+  const [serviceGroups, setServiceGroups] = useState(SERVICE_GROUPS);
+
+  // Fetch updated services list from dynamic backend API
+  useEffect(() => {
+    fetch('/api/public/services')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setServiceGroups(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public services in ServicesView:', err));
+  }, []);
   
   // Custom projects list (loaded from localStorage or seeded)
   const [customProjects, setCustomProjects] = useState<CustomProject[]>(() => {
@@ -239,8 +253,8 @@ export default function ServicesView({ navigate, setPreFilledForm }: ServicesVie
   };
 
   // Flat list of services mapped to parents
-  const allServicesWithParent = SERVICE_GROUPS.flatMap(group => {
-    return group.services.map(srv => {
+  const allServicesWithParent = serviceGroups.flatMap(group => {
+    return (group.services || []).map(srv => {
       const isGrpComingSoon = group.status === 'coming_soon';
       const actualStatus = srv.status === 'coming_soon' || isGrpComingSoon ? 'coming_soon' : 'available';
       
@@ -798,8 +812,8 @@ export default function ServicesView({ navigate, setPreFilledForm }: ServicesVie
                                   Hiệu quả đo lường thực tế đạt được:
                                 </h5>
                                 <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {proj.results.map((res, index) => (
-                                    <li key={index} className="flex items-start gap-2 text-xs text-slate-800 font-medium">
+                                  {(proj.results || []).map((res, index) => (
+                                    <li key={index} className="flex items-start gap-2 text-xs text-slate-800 font-medium font-sans">
                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                                       <span>{res}</span>
                                     </li>

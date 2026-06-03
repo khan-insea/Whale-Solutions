@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowRight,
   Sparkles,
@@ -28,6 +28,49 @@ interface HomeViewProps {
 
 export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const [serviceGroups, setServiceGroups] = useState(SERVICE_GROUPS);
+  const [pricingPlans, setPricingPlans] = useState(PRICING_PLANS);
+  const [portfolioProjects, setPortfolioProjects] = useState(PORTFOLIO_PROJECTS);
+  const [blogPosts, setBlogPosts] = useState(BLOG_POSTS);
+
+  useEffect(() => {
+    fetch('/api/public/services')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setServiceGroups(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public services:', err));
+
+    fetch('/api/public/pricing')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setPricingPlans(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public pricing plans:', err));
+
+    fetch('/api/public/projects')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setPortfolioProjects(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public projects:', err));
+
+    fetch('/api/public/posts')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setBlogPosts(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public blog posts:', err));
+  }, []);
 
   const handleCtaClick = (path: string) => {
     navigate(path);
@@ -133,8 +176,8 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {SERVICE_GROUPS.filter(g => g.status === 'available' || g.status === 'hybrid').map((group) => {
-            const availableServices = group.services.filter(s => s.status === 'available');
+          {serviceGroups.filter(g => g.status === 'available' || g.status === 'hybrid').map((group) => {
+            const availableServices = (group.services || []).filter(s => s.status === 'available');
             return (
               <div
                 key={group.id}
@@ -164,7 +207,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
 
                 <div className="pt-4 border-t border-slate-100">
                   <button
-                    onClick={() => handleQuoteClick(group.services[0]?.name || group.title)}
+                    onClick={() => handleQuoteClick((group.services && group.services[0]?.name) || group.title)}
                     className="w-full py-2.5 rounded-xl text-xs font-semibold text-center text-[#1E73FF] bg-[#1E73FF]/10 hover:bg-[#1E73FF]/15 border border-[#1E73FF]/20 hover:border-[#1E73FF]/40 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     {group.ctaText}
@@ -191,7 +234,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SERVICE_GROUPS.filter(g => g.status === 'coming_soon').slice(0, 4).map((group) => (
+            {serviceGroups.filter(g => g.status === 'coming_soon').slice(0, 4).map((group) => (
               <div
                 key={group.id}
                 className="bg-white border border-slate-200 rounded-xl p-5 hover:border-[#1E73FF]/30 hover:shadow-md hover:shadow-slate-100 transition-all flex flex-col justify-between shadow-sm"
@@ -244,7 +287,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {PRICING_PLANS.slice(0, 3).map((plan) => (
+          {pricingPlans.slice(0, 3).map((plan) => (
             <div
               key={plan.id}
               className={`bg-white border rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:scale-[1.015] transition-all shadow-sm ${
@@ -272,8 +315,8 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
                 </div>
 
                 <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-xs text-slate-600 leading-relaxed">
+                  {(plan.features || []).map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-xs text-slate-600 leading-relaxed font-sans">
                       <CheckCircle2 size={13} className="text-[#1E73FF] mt-1 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
@@ -407,7 +450,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PORTFOLIO_PROJECTS.map((proj) => (
+          {portfolioProjects.map((proj) => (
             <div
               key={proj.id}
               className="bg-white border border-slate-200 rounded-xl overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md transition-all"
@@ -437,7 +480,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
 
               <div className="p-4 pt-0">
                 <div className="flex flex-wrap gap-1.5 mb-4">
-                  {proj.tags.map((t) => (
+                  {(proj.tags || []).map((t) => (
                     <span key={t} className="px-1.5 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-medium rounded border border-slate-200/50">
                       #{t}
                     </span>
@@ -523,7 +566,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {BLOG_POSTS.map((post) => (
+          {blogPosts.map((post) => (
             <div
               key={post.id}
               onClick={() => handleCtaClick('/blog')}

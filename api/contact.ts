@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
+import { insertItem } from './db-helper';
 
 // Keep a simple in-memory rate-limiting map on Vercel container instances
 const rateLimitMap = new Map<string, number[]>();
@@ -223,53 +224,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       </div>
     `;
 
-    // Try to trigger submissions saving on Vercel's temporary context or dynamic store
-    // Even though serverless environments are stateless, we can keep temporary data in /tmp so testing form actually submits and saves
+    // Save lead to Supabase database
+    let dbErrorOccurred: any = null;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const tmpDir = path.join('/tmp', 'data');
-      if (!fs.existsSync(tmpDir)) {
-        fs.mkdirSync(tmpDir, { recursive: true });
-      }
-      const filePath = path.join(tmpDir, 'submissions.json');
-      let currentData: any[] = [];
-      if (fs.existsSync(filePath)) {
-        try {
-          const fileContent = fs.readFileSync(filePath, 'utf8');
-          currentData = JSON.parse(fileContent);
-        } catch (_) {}
-      }
       const newSubmission = {
-        id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        name: resolvedName,
         fullName: resolvedName,
         phone: resolvedPhone,
         email: resolvedEmail,
-        service: resolvedService,
-        serviceOfInterest: resolvedService,
         businessName: resolvedBusinessName || 'Cá nhân / Chưa xác định',
         requestType: resolvedRequestType,
+        serviceOfInterest: resolvedService,
         budget: resolvedBudget,
         timeline: resolvedTimeline,
         message: resolvedMessage,
+        pageSource: resolvedPage,
+        status: 'pending',
+        internal_note: '',
         submittedAt: new Date().toISOString(),
-        page: resolvedPage,
-        pageSource: resolvedPage
       };
-      currentData.unshift(newSubmission);
-      fs.writeFileSync(filePath, JSON.stringify(currentData.slice(0, 50), null, 2)); // limit to 50 items for speed
-    } catch (_) {
-      // Ignore write failures in Readonly filesystems silently in prod
+      await insertItem('leads', newSubmission as any);
+    } catch (dbErr: any) {
+      console.error('[DATABASE] Failed to save lead submission:', dbErr);
+      dbErrorOccurred = dbErr;
     }
 
-    const resend = new Resend(resendApiKey);
-    await resend.emails.send({
-      from: contactFromEmail,
-      to: [contactToEmail],
-      subject: `[Whale Agency] Form mới từ website - ${resolvedName}`,
-      html: emailHtml,
-    });
+    // Send email using Resend
+    let emailErrorOccurred: any = null;
+    try {
+      const resend = new Resend(resendApiKey);
+      await resend.emails.send({
+        from: contactFromEmail,
+        to: [contactToEmail],
+        subject: `[Whale Agency] Form mới từ website - ${resolvedName}`,
+        html: emailHtml,
+      });
+    } catch (emailErr: any) {
+      console.error('[EMAIL] Failed to send email via Resend:', emailErr);
+      emailErrorOccurred = emailErr;
+    }
+
+    if (process.env.NODE_ENV === 'production' && (dbErrorOccurred || emailErrorOccurred)) {
+      const parts: string[] = [];
+      if (dbErrorOccurred) {
+        parts.push(`Lỗi kết nối / lưu Supabase: ${dbErrorOccurred?.message || JSON.stringify(dbErrorOccurred)}`);
+      }
+      if (emailErrorOccurred) {
+        parts.push(`Lỗi gửi mail qua Resend: ${emailErrorOccurred?.message || JSON.stringify(emailErrorOccurred)}`);
+      }
+      return res.status(500).json({
+        success: false,
+        error: `Có lỗi xảy ra trên môi trường Production: ${parts.join(' | ')}`
+      });
+    }
 
     return res.status(200).json({
       success: true,

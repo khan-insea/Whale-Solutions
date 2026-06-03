@@ -11,6 +11,19 @@ interface ProjectsViewProps {
 export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsViewProps) {
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [portfolioProjects, setPortfolioProjects] = useState(PORTFOLIO_PROJECTS);
+
+  // Fetch updated dynamic projects list
+  useEffect(() => {
+    fetch('/api/public/projects')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setPortfolioProjects(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public projects in ProjectsView:', err));
+  }, []);
 
   // Update active main view image whenever selected project changes
   useEffect(() => {
@@ -74,7 +87,7 @@ export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsVie
             </p>
 
             <div className="flex flex-wrap gap-2 pt-2">
-              {selectedProject.tags.map((tag) => (
+              {(selectedProject.tags || []).map((tag) => (
                 <span
                   key={tag}
                   className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-mono rounded border border-slate-200"
@@ -112,7 +125,7 @@ export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsVie
                 </h3>
               </div>
               <ul className="space-y-3">
-                {selectedProject.results.map((res, i) => (
+                {(selectedProject.results || []).map((res, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700">
                     <span className="p-0.5 bg-emerald-500 text-white rounded-full mt-0.5 shrink-0 flex items-center justify-center">
                       <Check size={8} />
@@ -275,7 +288,7 @@ export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsVie
 
       {/* Grid Projects List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {PORTFOLIO_PROJECTS.map((proj) => (
+        {portfolioProjects.map((proj) => (
           <div
             key={proj.id}
             className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-350 transition-all flex flex-col md:flex-row group shadow-sm"
@@ -327,7 +340,7 @@ export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsVie
               {/* Badges footer tags & micro CTAs buttons */}
               <div className="space-y-4 pt-3 border-t border-slate-100">
                 <div className="flex flex-wrap gap-1.5">
-                  {proj.tags.map((t) => (
+                  {(proj.tags || []).map((t) => (
                     <span key={t} className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-mono rounded border border-slate-100">
                       #{t}
                     </span>

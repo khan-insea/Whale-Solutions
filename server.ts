@@ -4,6 +4,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { Resend } from 'resend';
+import { getCollection, insertItem, updateItem, removeItem, saveCollection, getInitialSeedData } from './api/db-helper';
 
 // Load environment variables
 dotenv.config();
@@ -73,6 +74,152 @@ app.post('/api/submissions/clear', checkAdminAuth, (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// PUBLIC FRONTEND APIS
+// ----------------------------------------------------
+app.get('/api/public/:module', async (req, res) => {
+  const { module } = req.params;
+  let table = module;
+  if (module === 'pricing') table = 'pricing_plans';
+  if (module === 'settings') table = 'site_settings';
+
+  const allowedTables = ['posts', 'products', 'services', 'pricing_plans', 'projects', 'solutions', 'courses', 'site_settings'];
+  if (!allowedTables.includes(table)) {
+    return res.status(404).json({ success: false, error: 'Phân hệ dữ liệu không tồn tại.' });
+  }
+
+  try {
+    const list = await getCollection(table);
+    let data = list;
+
+    // Apply exact user-defined filtering rules for public consumption
+    if (table === 'posts') {
+      data = (list as any[]).filter(item => item.status === 'published');
+    } else if (table === 'pricing_plans') {
+      data = (list as any[])
+        .filter(item => item.status === 'active')
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    } else if (table === 'projects') {
+      data = (list as any[]).filter(item => item.status === 'published');
+    } else if (table === 'services' || table === 'products' || table === 'solutions' || table === 'courses') {
+      data = (list as any[]).filter(item => item.status !== 'hidden');
+    }
+
+    return res.json({ success: true, data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || err });
+  }
+});
+
+// ----------------------------------------------------
+// CMS MULTI-MODULE REST API CORE
+// ----------------------------------------------------
+app.all('/api/admin/:module', checkAdminAuth, async (req, res) => {
+  const { module } = req.params;
+  const method = req.method;
+
+  if (module === 'seed') {
+    if (method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Chỉ hỗ trợ phương thức POST để chạy seeding.' });
+    }
+    try {
+      const allowedTables = ['posts', 'products', 'services', 'pricing_plans', 'projects', 'solutions', 'courses', 'site_settings'];
+      const results: Record<string, number> = {};
+      for (const table of allowedTables) {
+        const seedData = getInitialSeedData(table);
+        if (seedData && seedData.length > 0) {
+          await saveCollection(table, seedData);
+          results[table] = seedData.length;
+        } else {
+          results[table] = 0;
+        }
+      }
+      return res.json({
+        success: true,
+        message: 'Đã gieo hạt dữ liệu ban đầu cho toàn bộ hệ thống CMS thành công!',
+        seeded_records: results
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || err });
+    }
+  }
+
+  let table = module;
+  if (module === 'pricing') table = 'pricing_plans';
+  if (module === 'settings') table = 'site_settings';
+
+  const allowedTables = ['leads', 'posts', 'products', 'services', 'pricing_plans', 'projects', 'solutions', 'courses', 'site_settings'];
+  if (!allowedTables.includes(table)) {
+    return res.status(404).json({ success: false, error: 'Phân hệ quản trị không tồn tại.' });
+  }
+
+  try {
+    if (method === 'GET') {
+      const list = await getCollection(table);
+      let data = list;
+      if (module === 'pricing') {
+        data = (list as any[]).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      }
+
+      if (module === 'settings') {
+        const stats = {
+          resend_configured: !!process.env.RESEND_API_KEY,
+          supabase_configured: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+          analytics_configured: !!(process.env.VITE_GA_ID || process.env.NEXT_PUBLIC_GA_ID),
+          clarity_configured: !!(process.env.VITE_CLARITY_ID || process.env.NEXT_PUBLIC_CLARITY_ID)
+        };
+        return res.json({ success: true, data: list, status: stats });
+      }
+
+      return res.json({ success: true, data });
+    }
+
+    if (method === 'POST') {
+      if (module === 'settings') {
+        const payload = req.body;
+        let currentList = await getCollection<any>(table);
+        if (Array.isArray(payload)) {
+          for (const item of payload) {
+            const idx = currentList.findIndex(x => x.key === item.key);
+            if (idx !== -1) currentList[idx].value = item.value;
+            else currentList.push({ id: `set-${Date.now()}`, key: item.key, value: item.value });
+          }
+        } else {
+          const { key, value } = payload;
+          if (!key) return res.status(400).json({ success: false, error: 'Key required' });
+          const idx = currentList.findIndex(x => x.key === key);
+          if (idx !== -1) currentList[idx].value = value;
+          else currentList.push({ id: `set-${Date.now()}`, key, value });
+        }
+        await saveCollection(table, currentList);
+        return res.json({ success: true, message: 'Settings saved', data: currentList });
+      }
+
+      const payload = req.body;
+      const created = await insertItem(table, payload);
+      return res.status(201).json({ success: true, data: created });
+    }
+
+    if (method === 'PATCH') {
+      const { id, ...payload } = req.body;
+      if (!id) return res.status(400).json({ success: false, error: 'Id is required' });
+      const updated = await updateItem(table, id, payload);
+      return res.json({ success: true, data: updated });
+    }
+
+    if (method === 'DELETE') {
+      const id = (req.query.id as string) || req.body.id;
+      if (!id) return res.status(400).json({ success: false, error: 'Id is required' });
+      await removeItem(table, id);
+      return res.json({ success: true, message: 'Item deleted values' });
+    }
+
+    return res.status(405).json({ success: false, error: 'Phương thức không được hỗ trợ' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || err });
+  }
+});
+
 // Handler for contact submission
 const handleContactSubmission = async (req: express.Request, res: express.Response) => {
   try {
@@ -135,11 +282,33 @@ const handleContactSubmission = async (req: express.Request, res: express.Respon
       pageSource: resolvedPage // backward compatibility
     };
 
-    // Save locally
-    const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf-8');
-    const currentSubmissions = JSON.parse(fileContent);
-    currentSubmissions.unshift(newSubmission);
-    fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify(currentSubmissions, null, 2), 'utf-8');
+    // Save to database/Supabase (or fallback local storage handle)
+    try {
+      const dbSubmission = {
+        fullName: resolvedName,
+        phone: resolvedPhone,
+        email: resolvedEmail,
+        businessName: businessName || 'Cá nhân / Chưa có doanh nghiệp',
+        requestType: requestType || 'consult',
+        serviceOfInterest: resolvedService,
+        budget: budget || 'Chưa xác định',
+        timeline: timeline || 'Chưa rõ',
+        message: resolvedMessage,
+        pageSource: resolvedPage,
+        status: 'pending',
+        internal_note: '',
+        submittedAt: submittedAt || new Date().toISOString()
+      };
+      await insertItem('leads', dbSubmission as any);
+
+      // Also keep standard fallback submissions list sync for backwards compatibility
+      const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf-8');
+      const currentSubmissions = JSON.parse(fileContent);
+      currentSubmissions.unshift(newSubmission);
+      fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify(currentSubmissions, null, 2), 'utf-8');
+    } catch (saveErr) {
+      console.error('[DATABASE/LOCAL] Error saving submission:', saveErr);
+    }
 
     // Attempt to send email via Resend if environment variables are configured
     const resendApiKey = process.env.RESEND_API_KEY;

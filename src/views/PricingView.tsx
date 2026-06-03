@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Heart, Sparkles, HelpCircle, ArrowRight } from 'lucide-react';
 import { PRICING_PLANS, SERVICE_GROUPS } from '../data';
 
@@ -8,6 +8,30 @@ interface PricingViewProps {
 }
 
 export default function PricingView({ navigate, setPreFilledForm }: PricingViewProps) {
+  const [pricingPlans, setPricingPlans] = useState(PRICING_PLANS);
+  const [serviceGroups, setServiceGroups] = useState(SERVICE_GROUPS);
+
+  // Fetch updated records from backend API
+  useEffect(() => {
+    fetch('/api/public/pricing')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setPricingPlans(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public pricing plans:', err));
+
+    fetch('/api/public/services')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setServiceGroups(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public services in PricingView:', err));
+  }, []);
+
   const handleQuoteClick = (packageName: string) => {
     setPreFilledForm({
       service: packageName,
@@ -27,7 +51,7 @@ export default function PricingView({ navigate, setPreFilledForm }: PricingViewP
   };
 
   // Extract coming soon groups for Part 2
-  const comingSoonGroups = SERVICE_GROUPS.filter((g) => g.status === 'coming_soon').slice(0, 5);
+  const comingSoonGroups = serviceGroups.filter((g) => g.status === 'coming_soon').slice(0, 5);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 space-y-20">
@@ -57,7 +81,7 @@ export default function PricingView({ navigate, setPreFilledForm }: PricingViewP
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {PRICING_PLANS.map((plan) => {
+          {pricingPlans.map((plan) => {
             const isHighlight = plan.id === 'price-2' || plan.id === 'price-6';
             return (
               <div
@@ -83,8 +107,8 @@ export default function PricingView({ navigate, setPreFilledForm }: PricingViewP
                   </div>
 
                   <ul className="space-y-3 mb-8 border-t border-slate-100/50 pt-4">
-                    {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                    {(plan.features || []).map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed font-sans">
                         <Check size={13} className="text-[#1E73FF] mt-1 flex-shrink-0" />
                         <span>{feature}</span>
                       </li>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BlogPost } from '../types';
 import { BLOG_POSTS } from '../data';
 import { Clock, ArrowLeft, Send, ChevronRight, HelpCircle, User } from 'lucide-react';
@@ -10,6 +10,18 @@ interface BlogViewProps {
 
 export default function BlogView({ navigate, setPreFilledForm }: BlogViewProps) {
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [blogPosts, setBlogPosts] = useState(BLOG_POSTS);
+
+  useEffect(() => {
+    fetch('/api/public/posts')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setBlogPosts(res.data);
+        }
+      })
+      .catch(err => console.error('Error fetching public blog posts:', err));
+  }, []);
 
   const handleBack = () => {
     setSelectedPost(null);
@@ -122,7 +134,7 @@ export default function BlogView({ navigate, setPreFilledForm }: BlogViewProps) 
 
       {/* Blog Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-4">
-        {BLOG_POSTS.map((post) => (
+        {blogPosts.map((post) => (
           <div
             key={post.id}
             onClick={() => handleArticleClick(post)}

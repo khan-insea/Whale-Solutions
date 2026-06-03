@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Calendar, HelpCircle, BadgeAlert, Sparkles, GraduationCap } from 'lucide-react';
 
 interface TrainingViewProps {
@@ -16,7 +16,7 @@ export default function TrainingView({ navigate, setPreFilledForm }: TrainingVie
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  const courses = [
+  const initialCourses = [
     { name: 'Khóa học AI ứng dụng doanh nghiệp', duration: '4 buổi', desc: 'Sử dụng AI tự động hóa quy trình chuẩn soạn nội dung và lên kế hoạch marketing thực tế.' },
     { name: 'Khóa học ChatGPT/Gemini thực chiến', duration: '3 buổi', desc: 'Khai thác tối đa năng lực mô hình lớn để tối ưu hiệu suất công việc văn phòng.' },
     { name: 'Khóa học viết prompt kỹ năng cao', duration: '2 buổi', desc: 'Học cách thiết kế câu lệnh có cấu trúc chuẩn xác để lập trình bot phản hồi đúng ý 100%.' },
@@ -29,6 +29,24 @@ export default function TrainingView({ navigate, setPreFilledForm }: TrainingVie
     { name: 'Khóa học Quản trị fanpage bán hàng', duration: '4 buổi', desc: 'Quy chuẩn lên schedule bài đăng chăm sóc fanpage, xử lý phản hồi bình luận chuyên nghiệp.' },
     { name: 'Khóa học Công cụ số cho doanh nghiệp', duration: '4 buổi', desc: 'Tích hợp các tool số hiện lượng cao giúp quản lý công việc nhóm, lưu trữ dữ liệu an toàn.' }
   ];
+
+  const [coursesList, setCoursesList] = useState(initialCourses);
+
+  useEffect(() => {
+    fetch('/api/public/courses')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map((item: any) => ({
+            name: item.title,
+            duration: item.duration || '4 buổi',
+            desc: item.description
+          }));
+          setCoursesList(mapped);
+        }
+      })
+      .catch(err => console.error('Error fetching public courses:', err));
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 space-y-12">
@@ -54,7 +72,7 @@ export default function TrainingView({ navigate, setPreFilledForm }: TrainingVie
 
       {/* Course Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-        {courses.map((course) => (
+        {coursesList.map((course) => (
           <div
             key={course.name}
             className="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-350 transition-all flex flex-col justify-between group shadow-sm hover:shadow-md"

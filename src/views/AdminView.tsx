@@ -1,130 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Search, RefreshCw, Trash2, ArrowUpRight, Sparkles, Filter, ShieldAlert, LogOut } from 'lucide-react';
-import { SubmissionRequest } from '../types';
+import { Database, ShieldAlert, LogOut, Users, FileText, Layers, Settings2, DollarSign, Briefcase, Lightbulb, GraduationCap, Cog } from 'lucide-react';
+
+// Modular CMS Panel imports
+import AdminLeads from '../components/admin/AdminLeads';
+import AdminPosts from '../components/admin/AdminPosts';
+import AdminProducts from '../components/admin/AdminProducts';
+import AdminServices from '../components/admin/AdminServices';
+import AdminPricing from '../components/admin/AdminPricing';
+import AdminProjects from '../components/admin/AdminProjects';
+import AdminSolutions from '../components/admin/AdminSolutions';
+import AdminCourses from '../components/admin/AdminCourses';
+import AdminSettings from '../components/admin/AdminSettings';
+
+type CMSTab = 'leads' | 'posts' | 'products' | 'services' | 'pricing' | 'projects' | 'solutions' | 'courses' | 'settings';
 
 export default function AdminView() {
-  const [submissions, setSubmissions] = useState<SubmissionRequest[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [messageFeedback, setMessageFeedback] = useState('');
-
-  // Secure Auth State
+  const [activeTab, setActiveTab] = useState<CMSTab>('leads');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
-
-  const loadSubmissions = async (tokenOverride?: string) => {
-    const token = tokenOverride || sessionStorage.getItem('whale_admin_token') || '';
-    if (!token) {
-      setIsAuthenticated(false);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch('/api/submissions', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.status === 401) {
-        sessionStorage.removeItem('whale_admin_token');
-        setIsAuthenticated(false);
-        setError('Mật khẩu quản trị không hợp lệ hoặc đã hết hạn.');
-      } else if (response.ok && data.success) {
-        setSubmissions(data.submissions || []);
-        setIsAuthenticated(true);
-      } else {
-        setError(data.error || 'Truy vấn danh sách khách hàng thất bại.');
-      }
-    } catch (err: any) {
-      setError('Lỗi kết nối đến máy chủ quản trị: ' + (err?.message || err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [isLoadingShield, setIsLoadingShield] = useState(false);
 
   useEffect(() => {
     const savedToken = sessionStorage.getItem('whale_admin_token');
     if (savedToken) {
       setIsAuthenticated(true);
-      loadSubmissions(savedToken);
     }
   }, []);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminPasswordInput.trim()) {
       setAuthError('Vui lòng nhập mật khẩu quản trị.');
       return;
     }
     setAuthError('');
-    sessionStorage.setItem('whale_admin_token', adminPasswordInput.trim());
-    loadSubmissions(adminPasswordInput.trim());
+    setIsLoadingShield(true);
+
+    try {
+      // Validate with a ping to leads endpoint
+      const response = await fetch('/api/admin/leads', {
+        headers: {
+          'Authorization': `Bearer ${adminPasswordInput.trim()}`
+        }
+      });
+      if (response.ok) {
+        sessionStorage.setItem('whale_admin_token', adminPasswordInput.trim());
+        setIsAuthenticated(true);
+      } else {
+        setAuthError('Mật khẩu quản trị không khớp hoặc rỗng.');
+      }
+    } catch (err) {
+      setAuthError('Lỗi kiểm định mật khẩu: Hãy chắc chắn bạn đã cấu hình biến ADMIN_PASSWORD.');
+    } finally {
+      setIsLoadingShield(false);
+    }
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem('whale_admin_token');
     setIsAuthenticated(false);
-    setSubmissions([]);
     setAdminPasswordInput('');
-    setError('');
+    setAuthError('');
   };
 
-  const handleClear = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ danh mục thông tin khách hàng trên hệ thống máy chủ chứ? Hành động này không thể hoàn tác!')) {
-      return;
-    }
-
-    const token = sessionStorage.getItem('whale_admin_token') || '';
-    try {
-      const response = await fetch('/api/submissions/clear', { 
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.status === 401) {
-        sessionStorage.removeItem('whale_admin_token');
-        setIsAuthenticated(false);
-        setError('Hạn xác thực đã hết. Vui lòng đăng nhập lại.');
-      } else if (response.ok && data.success) {
-        setMessageFeedback('Đã dọn dẹp danh mục khách hàng thành công.');
-        setSubmissions([]);
-      } else {
-        setError(data.error || 'Xóa danh sách thất bại.');
-      }
-    } catch (err: any) {
-      setError('Lỗi máy chủ khi xóa.');
-    }
-  };
-
-  // Filter and search computation
-  const filteredList = submissions.filter((item) => {
-    // Search filter names, phone, email, messages
-    const matchSearch =
-      item.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-      item.phone?.includes(search) ||
-      item.email?.toLowerCase().includes(search.toLowerCase()) ||
-      item.message?.toLowerCase().includes(search.toLowerCase()) ||
-      item.businessName?.toLowerCase().includes(search.toLowerCase()) ||
-      item.serviceOfInterest?.toLowerCase().includes(search.toLowerCase());
-
-    // Type filter
-    if (filterType === 'all') return matchSearch;
-    return item.requestType === filterType && matchSearch;
-  });
-
-  // Render Password Challenge page if not verified yet
   if (!isAuthenticated) {
     return (
-      <div className="max-w-md mx-auto pt-44 pb-32 px-4">
+      <div className="max-w-md mx-auto pt-44 pb-32 px-4 font-sans">
         <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-xl space-y-6" id="admin-login-shield">
           <div className="text-center space-y-2">
             <div className="w-12 h-12 bg-rose-50 border border-rose-200 text-rose-600 rounded-full flex items-center justify-center mx-auto">
@@ -132,7 +74,7 @@ export default function AdminView() {
             </div>
             <h2 className="font-display font-extrabold text-xl text-slate-900">Xác Thực Quyền Admin</h2>
             <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
-              Hệ thống yêu cầu mật mã quản trị viên cấp cao để truy cập toàn bộ cơ sở dữ liệu khách hàng.
+              Hệ thống yêu cầu mật mã quản trị viên cấp cao để truy cập CMS quản lý toàn diện.
             </p>
           </div>
 
@@ -148,28 +90,22 @@ export default function AdminView() {
                 placeholder="Nhập mật khẩu..."
                 value={adminPasswordInput}
                 onChange={(e) => setAdminPasswordInput(e.target.value)}
-                className="w-full bg-white border border-slate-200 focus:border-[#1E73FF] rounded-xl px-4 py-2.5 text-xs text-slate-950 placeholder-slate-400 focus:outline-none transition-colors shadow-inner"
+                className="w-full bg-white border border-slate-250 focus:border-[#1E73FF] rounded-xl px-4 py-2.5 text-xs text-slate-950 placeholder-slate-400 focus:outline-none transition-colors shadow-inner"
               />
             </div>
 
             {authError && (
-              <p className="text-[11px] font-medium text-rose-600" id="admin-auth-error-hint">
+              <p className="text-[11px] font-semibold text-rose-600" id="admin-auth-error-hint">
                 * {authError}
               </p>
             )}
 
-            {error && (
-              <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-800 text-[11px] leading-relaxed">
-                {error}
-              </div>
-            )}
-
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoadingShield}
               className="w-full bg-[#1E73FF] hover:bg-blue-600 transition-colors text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer"
             >
-              🚀 Mở khóa hệ thống
+              {isLoadingShield ? '🔑 Đang kiểm định...' : '🚀 Mở khóa hệ thống'}
             </button>
           </form>
         </div>
@@ -177,174 +113,106 @@ export default function AdminView() {
     );
   }
 
+  // Dashboard sidebar links definition
+  const sidebarItems = [
+    { id: 'leads', label: 'Khách hàng (Leads)', icon: Users },
+    { id: 'posts', label: 'Blog & Bài viết', icon: FileText },
+    { id: 'products', label: 'Gói phần mềm', icon: Layers },
+    { id: 'services', label: 'Nhóm Dịch vụ lớn', icon: Settings2 },
+    { id: 'pricing', label: 'Gói Bảng giá', icon: DollarSign },
+    { id: 'projects', label: 'Dự án Portfolio', icon: Briefcase },
+    { id: 'solutions', label: 'Giải pháp Số', icon: Lightbulb },
+    { id: 'courses', label: 'Khóa Đào tạo', icon: GraduationCap },
+    { id: 'settings', label: 'Cài đặt Website', icon: Cog },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 space-y-8">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-205 pb-5">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 font-sans">
+      {/* Title block */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5 mb-6">
         <div>
           <span className="text-[10px] uppercase font-mono font-bold text-[#1E73FF] bg-[#1E73FF]/10 border border-[#1E73FF]/15 px-2 py-0.5 rounded">
-            MANAGER SECURITY ONLY
+            WHALE AGENCY CMS SECURITY INTERACTION
           </span>
           <h1 className="font-display font-extrabold text-2xl sm:text-3xl text-slate-900 mt-1.5 flex items-center gap-2">
             <Database className="text-[#1E73FF]" size={24} />
-            Quản Trị Yêu Cầu Đơn Đặt Hàng
+            Hệ Thống Quản Trị Mini CMS
           </h1>
           <p className="text-slate-500 text-xs mt-1">
-            Bảng điều khiển kiểm tra, xác thực biểu mẫu được chuyển lưu trữ cục bộ trực tiếp trên Cloud Run Container.
+            Chủ động cập nhật toàn bộ bài đăng blog, dịch vụ công ty, dự án portfolio, bảng giá và dữ liệu khách hàng.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadSubmissions}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline font-bold">Làm mới</span>
-          </button>
-          
-          <button
-            disabled={submissions.length === 0}
-            onClick={handleClear}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white transition-all flex items-center gap-1.5 disabled:opacity-30 cursor-pointer"
-          >
-            <Trash2 size={14} />
-            <span className="hidden sm:inline font-bold">Xóa lịch sử</span>
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-bold bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
-            title="Đăng xuất khỏi tài khoản admin"
-          >
-            <LogOut size={14} />
-            <span className="hidden sm:inline font-bold">Đăng xuất</span>
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-900 hover:text-white border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+          title="Đăng xuất khỏi tài khoản admin"
+        >
+          <LogOut size={14} />
+          Đăng xuất
+        </button>
       </div>
 
-      {messageFeedback && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3.5 rounded-xl font-medium shadow-sm">
-          {messageFeedback}
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs p-3.5 rounded-xl flex items-center gap-2 font-medium shadow-sm">
-          <ShieldAlert size={15} className="text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Control center: Search and Filtering */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="md:col-span-6 relative">
-          <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo Tên, Số điện thoại, Email, dịch vụ..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#1E73FF] shadow-inner"
-          />
+      {/* Main CMS Layout containing left navigation sidebar and right workspace panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Responsive Mobile / Tablet navigation bar */}
+        <div className="lg:col-span-3 lg:hidden flex overflow-x-auto gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 scrollbar-none mb-2">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as CMSTab)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                  active ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Icon size={13} />
+                {item.label.split(' ')[0]}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="md:col-span-3">
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#1E73FF] shadow-inner"
-          >
-            <option value="all">Tất cả mục đích gửi form</option>
-            <option value="quote">Nhận báo giá hiện hữu</option>
-            <option value="interest">Đăng ký quan tâm sắp ra mắt</option>
-            <option value="consult">Cần tư vấn / chưa rõ</option>
-          </select>
+        {/* Large screen left Sidebar */}
+        <div className="hidden lg:block lg:col-span-3 space-y-1 bg-slate-50 border border-slate-200 rounded-2xl p-4 h-fit">
+          <span className="text-[9px] uppercase font-bold text-slate-400 block px-3 mb-2 font-mono tracking-wider">HẠNG MỤC CMS</span>
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as CMSTab)}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[12px] font-bold transition-all text-left cursor-pointer ${
+                  active 
+                    ? 'bg-blue-600 text-white font-extrabold shadow-md shadow-blue-500/10' 
+                    : 'text-slate-650 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Icon size={15} />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="md:col-span-3 flex items-center justify-end text-xs text-slate-500 pr-2 font-medium">
-          Hiển thị: <b className="text-slate-800 mx-1">{filteredList.length}</b> / {submissions.length} yêu cầu
+        {/* Active Tab rendering window panel */}
+        <div className="lg:col-span-9 bg-slate-50/50 border border-slate-200 p-6 rounded-2xl shadow-sm min-h-[500px]">
+          {activeTab === 'leads' && <AdminLeads />}
+          {activeTab === 'posts' && <AdminPosts />}
+          {activeTab === 'products' && <AdminProducts />}
+          {activeTab === 'services' && <AdminServices />}
+          {activeTab === 'pricing' && <AdminPricing />}
+          {activeTab === 'projects' && <AdminProjects />}
+          {activeTab === 'solutions' && <AdminSolutions />}
+          {activeTab === 'courses' && <AdminCourses />}
+          {activeTab === 'settings' && <AdminSettings />}
         </div>
+
       </div>
-
-      {/* Grid Submissions lists */}
-      {loading ? (
-        <div className="text-center py-20 text-slate-500 text-xs font-semibold">
-          <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-[#1E73FF]" />
-          Đang truy vấn lịch sử đơn hàng từ bộ nhớ máy chủ...
-        </div>
-      ) : filteredList.length === 0 ? (
-        <div className="bg-white border border-slate-200 p-16 text-center text-slate-500 text-xs rounded-xl shadow-sm font-semibold">
-          Chưa ghi nhận biểu mẫu nào khớp với dữ liệu lọc tìm kiếm khách hàng.
-        </div>
-      ) : (
-        <div className="space-y-4 font-sans">
-          {filteredList.map((sub) => (
-            <div
-              key={sub.id}
-              className={`bg-white border rounded-2xl p-6 hover:border-slate-350 transition-all shadow-sm ${
-                sub.requestType === 'interest' ? 'border-amber-200 ring-1 ring-amber-100 bg-amber-50/5' : 'border-slate-200'
-              }`}
-            >
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b border-slate-100">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-display font-bold text-slate-900 text-sm sm:text-base">{sub.fullName}</h3>
-                    <span className="text-[10px] px-2 py-0.5 bg-slate-50 text-slate-600 border border-slate-200 rounded font-semibold">
-                      {sub.businessName}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">Host: {sub.pageSource}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    SĐT: <a href={`tel:${sub.phone}`} className="text-[#1E73FF] hover:underline font-bold">{sub.phone}</a> &bull; Email: <a href={`mailto:${sub.email}`} className="text-slate-600 hover:underline break-all font-mono font-bold">{sub.email}</a>
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-end gap-1.5 text-right">
-                  {sub.requestType === 'interest' ? (
-                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/50">
-                      QUAN TÂM SẢN PHẨM SẮP RA MẮT
-                    </span>
-                  ) : sub.requestType === 'quote' ? (
-                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-250/50">
-                      BÁO GIÁ DỊCH VỤ HIỆN HỮU
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                      YÊU CẦU TƯ VẤN KHÁC
-                    </span>
-                  )}
-                  <span className="text-[10px] text-slate-400 font-semibold font-mono">
-                    {new Date(sub.submittedAt).toLocaleString('vi-VN')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Purchase specs */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs border-b border-slate-50 pb-4">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-mono font-semibold">Dịch vụ quan tâm</span>
-                  <span className="text-slate-800 font-bold">{sub.serviceOfInterest}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-mono font-semibold">Ngân sách dự tính</span>
-                  <span className="text-slate-800 font-bold">{sub.budget}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-mono font-semibold">Thời hạn mong muốn</span>
-                  <span className="text-slate-800 font-bold">{sub.timeline}</span>
-                </div>
-              </div>
-
-              {/* Message */}
-              <div className="mt-4 bg-slate-50 border border-slate-100 p-3 h-auto max-h-36 overflow-y-auto text-xs text-slate-705 rounded-lg whitespace-pre-wrap leading-relaxed">
-                <span className="text-[#1E73FF] font-mono select-none block mb-1 uppercase text-[9px] font-extrabold tracking-wider">Nội dung chi tiết:</span>
-                {sub.message}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

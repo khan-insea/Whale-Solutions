@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layers, Database, ShieldAlert, Heart, ArrowRight, BarChart3, QrCode, ClipboardList, Wallet, CalendarClock, MessageSquareShare, Wifi, Gamepad2 } from 'lucide-react';
 
 interface SolutionsViewProps {
@@ -16,18 +16,50 @@ export default function SolutionsView({ navigate, setPreFilledForm }: SolutionsV
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  const solutions = [
-    { name: 'CRM quản lý khách hàng', icon: <Database size={18} />, text: 'Giải pháp thu nhận và phân loại thông tin khách hàng từ Form, Hotline, Fanpage về một quản lý chung tập tử tế.' },
-    { name: 'Quản lý lead quảng cáo', icon: <Layers size={18} />, text: 'Đồng bộ hóa lead tự động thời gian thực từ quảng cáo Facebook, Google Ads, TikTok về Google Sheets lọc số điện thoại trùng.' },
-    { name: 'Dashboard marketing báo cáo', icon: <BarChart3 size={18} />, text: 'Xem nhanh hiệu quả chi tiêu chiến dịch quảng cáo và tỷ lệ chuyển đổi trực quan cùng biểu đồ D3 dọn dẹp sạch.' },
-    { name: 'Hệ thống check-in QR sự kiện', icon: <QrCode size={18} />, text: 'Quản lý bán vé hoặc kiểm tra ra vào hội thảo trực tiếp bằng điện thoại cá nhân siêu dễ của whale sea.' },
-    { name: 'Khảo sát thu hồi đánh giá', icon: <ClipboardList size={18} />, text: 'Biểu mẫu thu nhận feedback khách hàng sau dịch vụ, tích hợp báo cáo tự động giúp chủ cửa hàng dễ kiểm soát.' },
-    { name: 'Booking đặt lịch hẹn thông minh', icon: <CalendarClock size={18} />, text: 'Trang đặt lịch dịch vụ spa, salon, phong khám bám sát phòng trống thời gian thực, nhắc hẹn tự động qua tin nhắn.' },
-    { name: 'Cổng Loyalty & Tích điểm thành viên', icon: <Wallet size={18} />, text: 'Mã thành viên quét QR tại quầy giúp khách hàng tích điểm, đổi voucher giảm giá trên điện thoại của họ.' },
-    { name: 'Zalo Mini App & ZNS CSKH', icon: <MessageSquareShare size={18} />, text: 'Khởi chạy ứng dụng gọn gàng trên nền tảng Zalo, gửi tin nhắn chăm sóc khách hàng chủ động chi phí cực thấp.' },
-    { name: 'Wifi Marketing tăng tương tác', icon: <Wifi size={18} />, text: 'Hệ thống đăng nhập Wifi miễn phí yêu cầu like fanpage hoặc xem video quảng cáo thích hợp cho cafe/nhà hàng.' },
-    { name: 'Gamification Mini-game vòng quay', icon: <Gamepad2 size={18} />, text: 'Vòng quay may mắn, lật hình trúng thưởng giúp giữ chân khách hàng trên landing page lâu gấp 2 lần.' }
+  const initialSolutionsByString = [
+    { name: 'CRM quản lý khách hàng', icon: 'Database', text: 'Giải pháp thu nhận và phân loại thông tin khách hàng từ Form, Hotline, Fanpage về một quản lý chung tập tử tế.' },
+    { name: 'Quản lý lead quảng cáo', icon: 'Layers', text: 'Đồng bộ hóa lead tự động thời gian thực từ quảng cáo Facebook, Google Ads, TikTok về Google Sheets lọc số điện thoại trùng.' },
+    { name: 'Dashboard marketing báo cáo', icon: 'BarChart3', text: 'Xem nhanh hiệu quả chi tiêu chiến dịch quảng cáo và tỷ lệ chuyển đổi trực quan cùng biểu đồ D3 dọn dẹp sạch.' },
+    { name: 'Hệ thống check-in QR sự kiện', icon: 'QrCode', text: 'Quản lý bán vé hoặc kiểm tra ra vào hội thảo trực tiếp bằng điện thoại cá nhân siêu dễ của whale sea.' },
+    { name: 'Khảo sát thu hồi đánh giá', icon: 'ClipboardList', text: 'Biểu mẫu thu nhận feedback khách hàng sau dịch vụ, tích hợp báo cáo tự động giúp chủ cửa hàng dễ kiểm soát.' },
+    { name: 'Booking đặt lịch hẹn thông minh', icon: 'CalendarClock', text: 'Trang đặt lịch dịch vụ spa, salon, phong khám bám sát phòng trống thời gian thực, nhắc hẹn tự động qua tin nhắn.' },
+    { name: 'Cổng Loyalty & Tích điểm thành viên', icon: 'Wallet', text: 'Mã thành viên quét QR tại quầy giúp khách hàng tích điểm, đổi voucher giảm giá trên điện thoại của họ.' },
+    { name: 'Zalo Mini App & ZNS CSKH', icon: 'MessageSquareShare', text: 'Khởi chạy ứng dụng gọn gàng trên nền tảng Zalo, gửi tin nhắn chăm sóc khách hàng chủ động chi phí cực thấp.' },
+    { name: 'Wifi Marketing tăng tương tác', icon: 'Wifi', text: 'Hệ thống đăng nhập Wifi miễn phí yêu cầu like fanpage hoặc xem video quảng cáo thích hợp cho cafe/nhà hàng.' },
+    { name: 'Gamification Mini-game vòng quay', icon: 'Gamepad2', text: 'Vòng quay may mắn, lật hình trúng thưởng giúp giữ chân khách hàng trên landing page lâu gấp 2 lần.' }
   ];
+
+  const [solutionsList, setSolutionsList] = useState(initialSolutionsByString);
+
+  useEffect(() => {
+    fetch('/api/public/solutions')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          // Map backend schema to view elements
+          const mapped = res.data.map((item: any) => ({
+            name: item.title,
+            icon: item.icon || 'Database',
+            text: item.description
+          }));
+          setSolutionsList(mapped);
+        }
+      })
+      .catch(err => console.error('Error fetching public solutions:', err));
+  }, []);
+
+  const iconRegistry: { [key: string]: React.ReactNode } = {
+    'Database': <Database size={18} />,
+    'Layers': <Layers size={18} />,
+    'BarChart3': <BarChart3 size={18} />,
+    'QrCode': <QrCode size={18} />,
+    'ClipboardList': <ClipboardList size={18} />,
+    'CalendarClock': <CalendarClock size={18} />,
+    'Wallet': <Wallet size={18} />,
+    'MessageSquareShare': <MessageSquareShare size={18} />,
+    'Wifi': <Wifi size={18} />,
+    'Gamepad2': <Gamepad2 size={18} />
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 space-y-12">
@@ -55,7 +87,7 @@ export default function SolutionsView({ navigate, setPreFilledForm }: SolutionsV
 
       {/* Solutions Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
-        {solutions.map((sol) => (
+        {solutionsList.map((sol) => (
           <div
             key={sol.name}
             className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-[#1E73FF]/30 transition-all flex flex-col justify-between group shadow-sm hover:shadow-md"
@@ -63,7 +95,7 @@ export default function SolutionsView({ navigate, setPreFilledForm }: SolutionsV
             <div>
               <div className="flex justify-between items-start gap-4 mb-4">
                 <div className="p-2.5 bg-slate-50 text-[#1E73FF] rounded-xl border border-slate-100">
-                  {sol.icon}
+                  {iconRegistry[sol.icon] || <Database size={18} />}
                 </div>
                 <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100/50 px-2 py-0.5 rounded-full font-mono">
                   Sắp ra mắt
