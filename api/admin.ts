@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCollection, insertItem, updateItem, removeItem, saveCollection, getInitialSeedData } from '../src/lib/server/db-helper';
+import fs from 'fs';
+import path from 'path';
+import { getCollection, insertItem, updateItem, removeItem, saveCollection, getInitialSeedData } from '../lib/server/db-helper.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
@@ -100,13 +102,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // --- GET (List All) ---
     if (method === 'GET') {
-      let list = await getCollection<any>(table);
+      let list = await getCollection(table);
       
       // Seed fallback submissions in local dev if leads table is empty
       const isDev = process.env.NODE_ENV !== 'production';
       if (isDev && table === 'leads' && list.length === 0) {
-        const path = require('path');
-        const fs = require('fs');
         const submissionsPath = path.join(process.cwd(), 'data', 'submissions.json');
         if (fs.existsSync(submissionsPath)) {
           try {
@@ -141,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (method === 'POST') {
       if (resource === 'settings') {
         const payload = req.body;
-        let currentList = await getCollection<any>(table);
+        let currentList = await getCollection(table);
         if (Array.isArray(payload)) {
           for (const item of payload) {
             const idx = currentList.findIndex(x => x.key === item.key);
@@ -174,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (method === 'PATCH') {
       if (resource === 'settings') {
         const payload = req.body;
-        let currentList = await getCollection<any>(table);
+        let currentList = await getCollection(table);
         if (Array.isArray(payload)) {
           for (const item of payload) {
             const idx = currentList.findIndex(x => x.key === item.key);

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCollection } from '../src/lib/server/db-helper';
+import { getCollection } from '../lib/server/db-helper.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const list = await getCollection<any>(table);
+    const list = await getCollection(table);
     let filteredData = list;
 
     // Apply exact user-defined filtering rules for public consumption
