@@ -27,7 +27,7 @@ export default function AdminPosts() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/posts', {
+      const res = await fetch('/api/admin?resource=posts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -82,7 +82,7 @@ export default function AdminPosts() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/posts', {
+      const res = await fetch('/api/admin?resource=posts', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ export default function AdminPosts() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa bài viết này?')) return;
     try {
-      const res = await fetch(`/api/admin/posts?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=posts&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

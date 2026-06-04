@@ -39,7 +39,7 @@ export default function AdminView() {
 
     try {
       // Validate with a ping to leads endpoint
-      const response = await fetch('/api/admin/leads', {
+      const response = await fetch('/api/admin?resource=leads', {
         headers: {
           'Authorization': `Bearer ${adminPasswordInput.trim()}`
         }

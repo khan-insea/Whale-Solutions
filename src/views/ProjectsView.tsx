@@ -15,7 +15,7 @@ export default function ProjectsView({ navigate, setPreFilledForm }: ProjectsVie
 
   // Fetch updated dynamic projects list
   useEffect(() => {
-    fetch('/api/public/projects')
+    fetch('/api/public?resource=projects')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

@@ -35,7 +35,7 @@ export default function AdminServices() {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/services', {
+      const res = await fetch('/api/admin?resource=services', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -62,7 +62,7 @@ export default function AdminServices() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/services', {
+      const res = await fetch('/api/admin?resource=services', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -89,7 +89,7 @@ export default function AdminServices() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn xóa nhóm dịch vụ này? Toàn bộ các dịch vụ con bên trong sẽ biến mất.')) return;
     try {
-      const res = await fetch(`/api/admin/services?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=services&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

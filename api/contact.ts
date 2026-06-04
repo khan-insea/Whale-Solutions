@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
-import { insertItem } from './db-helper';
+import { insertItem } from '../src/lib/server/db-helper';
 
 // Keep a simple in-memory rate-limiting map on Vercel container instances
 const rateLimitMap = new Map<string, number[]>();

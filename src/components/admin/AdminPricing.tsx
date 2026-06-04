@@ -25,7 +25,7 @@ export default function AdminPricing() {
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/pricing', {
+      const res = await fetch('/api/admin?resource=pricing', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -52,7 +52,7 @@ export default function AdminPricing() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/pricing', {
+      const res = await fetch('/api/admin?resource=pricing', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ export default function AdminPricing() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn xóa gói giá này?')) return;
     try {
-      const res = await fetch(`/api/admin/pricing?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=pricing&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

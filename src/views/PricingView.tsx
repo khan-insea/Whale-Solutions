@@ -13,7 +13,7 @@ export default function PricingView({ navigate, setPreFilledForm }: PricingViewP
 
   // Fetch updated records from backend API
   useEffect(() => {
-    fetch('/api/public/pricing')
+    fetch('/api/public?resource=pricing')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -22,7 +22,7 @@ export default function PricingView({ navigate, setPreFilledForm }: PricingViewP
       })
       .catch(err => console.error('Error fetching public pricing plans:', err));
 
-    fetch('/api/public/services')
+    fetch('/api/public?resource=services')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

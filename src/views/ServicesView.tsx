@@ -165,7 +165,7 @@ export default function ServicesView({ navigate, setPreFilledForm }: ServicesVie
 
   // Fetch updated services list from dynamic backend API
   useEffect(() => {
-    fetch('/api/public/services')
+    fetch('/api/public?resource=services')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

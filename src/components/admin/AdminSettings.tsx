@@ -41,7 +41,7 @@ export default function AdminSettings() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin?resource=settings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -84,7 +84,7 @@ export default function AdminSettings() {
     }));
 
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin?resource=settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

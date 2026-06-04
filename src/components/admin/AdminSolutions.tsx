@@ -29,7 +29,7 @@ export default function AdminSolutions() {
   const fetchSolutions = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/solutions', {
+      const res = await fetch('/api/admin?resource=solutions', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -82,7 +82,7 @@ export default function AdminSolutions() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/solutions', {
+      const res = await fetch('/api/admin?resource=solutions', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ export default function AdminSolutions() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa giải pháp này?')) return;
     try {
-      const res = await fetch(`/api/admin/solutions?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=solutions&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

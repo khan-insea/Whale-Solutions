@@ -35,7 +35,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
   const [blogPosts, setBlogPosts] = useState(BLOG_POSTS);
 
   useEffect(() => {
-    fetch('/api/public/services')
+    fetch('/api/public?resource=services')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -44,7 +44,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
       })
       .catch(err => console.error('Error fetching public services:', err));
 
-    fetch('/api/public/pricing')
+    fetch('/api/public?resource=pricing')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -53,7 +53,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
       })
       .catch(err => console.error('Error fetching public pricing plans:', err));
 
-    fetch('/api/public/projects')
+    fetch('/api/public?resource=projects')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -62,7 +62,7 @@ export default function HomeView({ navigate, setPreFilledForm }: HomeViewProps) 
       })
       .catch(err => console.error('Error fetching public projects:', err));
 
-    fetch('/api/public/posts')
+    fetch('/api/public?resource=posts')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

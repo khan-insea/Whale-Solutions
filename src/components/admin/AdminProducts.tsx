@@ -34,7 +34,7 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/products', {
+      const res = await fetch('/api/admin?resource=products', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -87,7 +87,7 @@ export default function AdminProducts() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/products', {
+      const res = await fetch('/api/admin?resource=products', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default function AdminProducts() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa sản phẩm này?')) return;
     try {
-      const res = await fetch(`/api/admin/products?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=products&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

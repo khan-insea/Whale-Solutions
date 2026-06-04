@@ -33,7 +33,7 @@ export default function TrainingView({ navigate, setPreFilledForm }: TrainingVie
   const [coursesList, setCoursesList] = useState(initialCourses);
 
   useEffect(() => {
-    fetch('/api/public/courses')
+    fetch('/api/public?resource=courses')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

@@ -32,7 +32,7 @@ export default function AdminProjects() {
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/projects', {
+      const res = await fetch('/api/admin?resource=projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -59,7 +59,7 @@ export default function AdminProjects() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/projects', {
+      const res = await fetch('/api/admin?resource=projects', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export default function AdminProjects() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa dự án thực tế này?')) return;
     try {
-      const res = await fetch(`/api/admin/projects?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=projects&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

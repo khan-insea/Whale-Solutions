@@ -32,7 +32,7 @@ export default function SolutionsView({ navigate, setPreFilledForm }: SolutionsV
   const [solutionsList, setSolutionsList] = useState(initialSolutionsByString);
 
   useEffect(() => {
-    fetch('/api/public/solutions')
+    fetch('/api/public?resource=solutions')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {

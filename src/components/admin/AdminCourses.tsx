@@ -29,7 +29,7 @@ export default function AdminCourses() {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/courses', {
+      const res = await fetch('/api/admin?resource=courses', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -82,7 +82,7 @@ export default function AdminCourses() {
 
     try {
       const method = isNew ? 'POST' : 'PATCH';
-      const res = await fetch('/api/admin/courses', {
+      const res = await fetch('/api/admin?resource=courses', {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ export default function AdminCourses() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa khóa học này?')) return;
     try {
-      const res = await fetch(`/api/admin/courses?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=courses&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

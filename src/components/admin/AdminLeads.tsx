@@ -36,7 +36,7 @@ export default function AdminLeads() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/leads', {
+      const res = await fetch('/api/admin?resource=leads', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const resData = await res.json();
@@ -58,7 +58,7 @@ export default function AdminLeads() {
 
   const handleUpdateStatusAndNote = async (id: string) => {
     try {
-      const res = await fetch('/api/admin/leads', {
+      const res = await fetch('/api/admin?resource=leads', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export default function AdminLeads() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Chắc chắn muốn xóa khách hàng này?')) return;
     try {
-      const res = await fetch(`/api/admin/leads?id=${id}`, {
+      const res = await fetch(`/api/admin?resource=leads&id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

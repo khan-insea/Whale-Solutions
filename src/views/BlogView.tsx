@@ -13,7 +13,7 @@ export default function BlogView({ navigate, setPreFilledForm }: BlogViewProps) 
   const [blogPosts, setBlogPosts] = useState(BLOG_POSTS);
 
   useEffect(() => {
-    fetch('/api/public/posts')
+    fetch('/api/public?resource=posts')
       .then(res => res.json())
       .then(res => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
